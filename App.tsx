@@ -35,14 +35,15 @@ function App() {
   if (appState === 'LANDING') {
     return (
       <div 
-        className="min-h-screen flex items-center justify-center p-4 font-sans relative bg-slate-900 bg-cover bg-center bg-no-repeat"
+        className="min-h-screen flex items-center justify-center p-4 font-sans relative bg-slate-900 bg-cover bg-center bg-no-repeat bg-fixed"
         style={{ 
           backgroundImage: "url('./background.jpg')" 
         }}
       >
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-900/90 to-slate-900/90 backdrop-blur-sm"></div>
+        {/* Overlay with slightly less opacity to show the background image */}
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-900/80 via-blue-900/80 to-slate-900/80 backdrop-blur-sm"></div>
 
-        <div className="relative z-10 bg-white rounded-3xl shadow-2xl flex flex-col md:flex-row overflow-hidden max-w-5xl w-full min-h-[500px] md:min-h-[600px] border border-white/10">
+        <div className="relative z-10 bg-white rounded-3xl shadow-2xl flex flex-col md:flex-row overflow-hidden max-w-5xl w-full min-h-[500px] md:min-h-[600px] border border-white/10 animate-fade-in">
           
           {/* LEFT SIDE: HERO & VIEW MODE */}
           <div className="w-full md:w-1/2 p-8 md:p-12 flex flex-col items-center justify-center text-center bg-slate-50 relative overflow-hidden">

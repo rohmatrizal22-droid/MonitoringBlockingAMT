@@ -3,6 +3,9 @@ import { db } from '../services/mockDb';
 import { Case, Location, PunishmentLevel } from '../types';
 import { StatsCharts } from './StatsCharts';
 
+// Declare Swal globally for TypeScript
+declare const Swal: any;
+
 export const ViewMode: React.FC = () => {
   const [cases, setCases] = useState<Case[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
@@ -65,6 +68,27 @@ export const ViewMode: React.FC = () => {
     setFilterStatus('');
   };
 
+  // --- VIEW NOTE HANDLER ---
+  const handleViewNote = (c: Case) => {
+    if (typeof Swal !== 'undefined') {
+        Swal.fire({
+            title: `Catatan: ${c.amtName}`,
+            html: `
+                <div class="text-left bg-slate-50 p-4 rounded-lg border border-slate-200 text-sm text-slate-700">
+                    <p class="mb-2"><strong>Kasus:</strong> ${c.violationName} (${c.status})</p>
+                    <hr class="my-2 border-slate-300"/>
+                    <p class="italic font-medium">"${c.notes || 'Tidak ada catatan.'}"</p>
+                </div>
+            `,
+            icon: 'info',
+            confirmButtonText: 'Tutup',
+            confirmButtonColor: '#0f172a'
+        });
+    } else {
+        alert(`Catatan untuk ${c.amtName}:\n\n${c.notes || 'Tidak ada catatan.'}`);
+    }
+  };
+
   // --- EXPORT LOGIC ---
   const handleExportCSV = () => {
     if (filteredCases.length === 0) {
@@ -83,7 +107,8 @@ export const ViewMode: React.FC = () => {
         "Tanggal Unblock", 
         "Level Punishment", 
         "Tanggal Berakhir Sanksi",
-        "Status Pemutihan"
+        "Status Pemutihan",
+        "Catatan"
     ];
 
     const csvRows = [
@@ -101,7 +126,8 @@ export const ViewMode: React.FC = () => {
                 safe(c.unblockDate || "-"),
                 safe(c.punishmentLevel || "-"),
                 safe(c.punishmentEndDate || "-"),
-                isPemutihan(c) ? "YA (CLEARED)" : "AKTIF"
+                isPemutihan(c) ? "YA (CLEARED)" : "AKTIF",
+                safe(c.notes)
             ].join(",");
         })
     ];
@@ -119,6 +145,10 @@ export const ViewMode: React.FC = () => {
     link.click();
     document.body.removeChild(link);
   };
+
+  // Standardized Classes for Pixel-Perfect Alignment
+  const labelClass = "block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1";
+  const inputClass = "w-full h-[42px] border border-slate-300 rounded-lg px-3 text-xs md:text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-400 shadow-sm transition-all";
 
   return (
     <div className="p-3 md:p-6 max-w-[1600px] mx-auto space-y-6 md:space-y-8 animate-fade-in pb-20">
@@ -201,40 +231,43 @@ export const ViewMode: React.FC = () => {
               </button>
            </div>
 
-           {/* MULTI FILTER GRID */}
-           <div className="grid grid-cols-1 md:grid-cols-5 gap-2 md:gap-3">
-              {/* 1. Lokasi (FLEXIBLE SEARCH: Type OR Select via Datalist) */}
-              <div className="flex flex-col gap-1 relative">
+           {/* MULTI FILTER GRID - ALIGNED WITH ADMIN PANEL */}
+           <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
+              {/* 1. Lokasi */}
+              <div className="w-full">
+                 <label className={labelClass}>1. Lokasi</label>
                  <input 
                     list="viewLocationOptions"
                     type="text" 
-                    placeholder="Cari Lokasi / Pilih List..." 
+                    placeholder="Pilih Lokasi..." 
                     value={filterLocation}
                     onChange={(e) => setFilterLocation(e.target.value)}
-                    className="w-full border border-slate-300 rounded-lg p-2 md:p-2.5 text-xs md:text-sm focus:ring-2 focus:ring-blue-800 outline-none placeholder-slate-400"
+                    className={inputClass}
                  />
                  <datalist id="viewLocationOptions">
                     {locations.map(l => <option key={l.id} value={l.name} />)}
                  </datalist>
               </div>
 
-              {/* 2. Nama (Standard Text) */}
-              <div>
+              {/* 2. Nama */}
+              <div className="w-full">
+                 <label className={labelClass}>2. Nama AMT</label>
                  <input 
                     type="text" 
-                    placeholder="Cari Nama..." 
+                    placeholder="Ketik Nama..." 
                     value={filterName}
                     onChange={(e) => setFilterName(e.target.value)}
-                    className="w-full border border-slate-300 rounded-lg p-2 md:p-2.5 text-xs md:text-sm focus:ring-2 focus:ring-blue-800 outline-none"
+                    className={inputClass}
                  />
               </div>
 
               {/* 3. Jabatan */}
-              <div>
+              <div className="w-full">
+                 <label className={labelClass}>3. Jabatan</label>
                  <select 
                     value={filterRole} 
                     onChange={(e) => setFilterRole(e.target.value)}
-                    className="w-full border border-slate-300 rounded-lg p-2 md:p-2.5 text-xs md:text-sm focus:ring-2 focus:ring-blue-800 outline-none bg-white"
+                    className={`${inputClass} cursor-pointer`}
                  >
                     <option value="">Semua Jabatan</option>
                     <option value="AMT 1">AMT 1</option>
@@ -243,11 +276,12 @@ export const ViewMode: React.FC = () => {
               </div>
 
               {/* 4. Status */}
-              <div>
+              <div className="w-full">
+                 <label className={labelClass}>4. Status</label>
                  <select 
                     value={filterStatus} 
                     onChange={(e) => setFilterStatus(e.target.value)}
-                    className="w-full border border-slate-300 rounded-lg p-2 md:p-2.5 text-xs md:text-sm focus:ring-2 focus:ring-blue-800 outline-none bg-white"
+                    className={`${inputClass} cursor-pointer`}
                  >
                     <option value="">Semua Status</option>
                     <option value="BLOCKED">Blocked</option>
@@ -255,13 +289,19 @@ export const ViewMode: React.FC = () => {
                  </select>
               </div>
 
-              {/* Reset */}
-              <div>
+              {/* Reset Button (ICON STYLE & ALIGNED) */}
+              <div className="w-full">
+                 {/* Invisible label to align button with inputs */}
+                 <label className={`${labelClass} text-transparent select-none`}>Reset</label>
                  <button 
                     onClick={resetFilters}
-                    className="w-full bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2 md:py-2.5 rounded-lg text-xs md:text-sm transition-colors border border-slate-300"
+                    title="Reset Filter"
+                    className="w-full h-[42px] bg-slate-100 hover:bg-slate-200 hover:text-red-600 border border-slate-300 text-slate-500 font-bold rounded-lg transition-all flex items-center justify-center shadow-sm group"
                  >
-                    Reset Filter
+                    {/* Refresh / Reset Icon (Spinning on hover) */}
+                    <svg className="w-6 h-6 text-slate-600 group-hover:animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
                  </button>
               </div>
            </div>
@@ -279,6 +319,7 @@ export const ViewMode: React.FC = () => {
                 <th className="px-3 py-3 md:px-6 md:py-4">Pelanggaran</th>
                 <th className="px-3 py-3 md:px-6 md:py-4">Tgl Blokir</th>
                 <th className="px-3 py-3 md:px-6 md:py-4">Punishment</th>
+                <th className="px-3 py-3 md:px-6 md:py-4 text-center">Catatan</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -328,11 +369,17 @@ export const ViewMode: React.FC = () => {
                       </span>
                     )}
                   </td>
+                  <td className="px-3 py-3 md:px-6 md:py-4 text-center">
+                       {/* SHOW VIEW NOTE FOR ALL CASES */}
+                       <button onClick={() => handleViewNote(c)} className="text-slate-500 hover:text-blue-600 transition-colors p-1.5 rounded-full hover:bg-blue-50" title="Lihat Catatan">
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                       </button>
+                  </td>
                 </tr>
               )})}
               {filteredCases.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-slate-400">
+                  <td colSpan={8} className="px-6 py-12 text-center text-slate-400">
                     <div className="flex flex-col items-center justify-center">
                         <div className="bg-slate-50 p-4 rounded-full mb-3">
                            <svg className="w-10 h-10 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>

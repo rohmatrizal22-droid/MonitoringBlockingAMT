@@ -74,6 +74,7 @@ class MockDatabase {
             violationName: vio.name,
             status: 'BLOCKED',
             blockDate: new Date(Date.now() - Math.floor(Math.random() * 5) * 86400000).toISOString().split('T')[0], // 0-5 days ago
+            notes: "Indikasi pelanggaran terekam sistem."
         });
     }
 
@@ -216,8 +217,8 @@ class MockDatabase {
     localStorage.setItem(STORAGE_KEYS.VIOLATIONS, JSON.stringify(vios));
   }
 
-  // BLOCK AMT
-  createBlockCase(amtId: string, violationTypeId: string, blockDate: string): Case {
+  // BLOCK AMT - Updated to accept NOTES
+  createBlockCase(amtId: string, violationTypeId: string, blockDate: string, notes?: string): Case {
     const amts = this.getAMTs();
     const vios = this.getViolations();
     const locs = this.getLocations();
@@ -238,6 +239,7 @@ class MockDatabase {
       violationName: vio.name,
       status: 'BLOCKED',
       blockDate,
+      notes: notes || ''
     };
 
     const cases = this.getCases();
