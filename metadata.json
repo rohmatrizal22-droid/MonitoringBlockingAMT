@@ -1,0 +1,5 @@
+{
+  "name": "AMT Punishment Tracker",
+  "description": "Monitoring system for Tank Car Crew (AMT) violations, blocking, unblocking, and BAP punishment escalation.",
+  "requestFramePermissions": []
+}
