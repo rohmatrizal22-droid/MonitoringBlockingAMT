@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../services/mockDb';
-import { Case, Location } from '../types';
+import { Case, Location, PunishmentLevel } from '../types';
 import { StatsCharts } from './StatsCharts';
 
 export const ViewMode: React.FC = () => {
@@ -35,12 +35,21 @@ export const ViewMode: React.FC = () => {
   const unblockedCount = cases.filter(c => c.status === 'UNBLOCKED').length;
   const phkCount = cases.filter(c => c.punishmentLevel === 'PHK').length;
 
+  // --- LOGIC PEMUTIHAN ---
+  const isPemutihan = (c: Case) => {
+      if (c.status === 'BLOCKED' || !c.punishmentEndDate || c.punishmentEndDate === 'Permanent' || c.punishmentLevel === PunishmentLevel.PHK) return false;
+      const today = new Date().toISOString().split('T')[0];
+      return c.punishmentEndDate < today;
+  };
+
   // --- FILTER LOGIC ---
   const filteredCases = cases.filter(c => {
-    // 1. Filter Lokasi (Exact Match)
-    const matchLoc = filterLocation === '' || c.amtLocation === filterLocation;
-    // 2. Filter Nama (Partial Match, Case Insensitive)
+    // Flexible Location Filter (Type OR List via Datalist)
+    const matchLoc = filterLocation === '' || c.amtLocation.toLowerCase().includes(filterLocation.toLowerCase());
+    
+    // Name Filter (Standard Text Input)
     const matchName = filterName === '' || c.amtName.toLowerCase().includes(filterName.toLowerCase());
+    
     // 3. Filter Jabatan (Exact Match)
     const matchRole = filterRole === '' || c.amtRole === filterRole;
     // 4. Filter Status (Exact Match)
@@ -73,7 +82,8 @@ export const ViewMode: React.FC = () => {
         "Tanggal Blokir", 
         "Tanggal Unblock", 
         "Level Punishment", 
-        "Tanggal Berakhir Sanksi"
+        "Tanggal Berakhir Sanksi",
+        "Status Pemutihan"
     ];
 
     const csvRows = [
@@ -90,7 +100,8 @@ export const ViewMode: React.FC = () => {
                 safe(c.blockDate),
                 safe(c.unblockDate || "-"),
                 safe(c.punishmentLevel || "-"),
-                safe(c.punishmentEndDate || "-")
+                safe(c.punishmentEndDate || "-"),
+                isPemutihan(c) ? "YA (CLEARED)" : "AKTIF"
             ].join(",");
         })
     ];
@@ -110,60 +121,60 @@ export const ViewMode: React.FC = () => {
   };
 
   return (
-    <div className="p-6 max-w-[1600px] mx-auto space-y-8 animate-fade-in pb-20">
+    <div className="p-3 md:p-6 max-w-[1600px] mx-auto space-y-6 md:space-y-8 animate-fade-in pb-20">
       {/* Header Section */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end pb-6 border-b border-slate-200">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end pb-4 md:pb-6 border-b border-slate-200">
         <div>
-          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Dashboard Monitoring</h1>
-          <p className="text-slate-500 mt-2 font-medium">Pemantauan Real-time Pelanggaran & Sanksi Awak Mobil Tangki.</p>
+          <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">Dashboard Monitoring</h1>
+          <p className="text-sm md:text-base text-slate-500 mt-1 md:mt-2 font-medium">Pemantauan Real-time Pelanggaran & Sanksi Awak Mobil Tangki.</p>
         </div>
-        <div className="mt-4 md:mt-0 flex flex-col items-end">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Last Sync</span>
-          <div className="bg-blue-50 text-blue-800 px-4 py-1.5 rounded-md text-sm font-mono font-bold border border-blue-100">
-            {new Date().toLocaleTimeString()}
+        <div className="mt-3 md:mt-0 flex flex-col items-end w-full md:w-auto">
+          <span className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest hidden md:block">Last Sync</span>
+          <div className="bg-blue-50 text-blue-800 px-3 py-1 md:px-4 md:py-1.5 rounded-md text-xs md:text-sm font-mono font-bold border border-blue-100 w-full md:w-auto text-center md:text-right">
+            Update: {new Date().toLocaleTimeString()}
           </div>
         </div>
       </div>
 
-      {/* KPI Cards - Professional Corporate Style */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
         {/* Blocked Card */}
-        <div className="bg-white rounded-xl shadow-md border-l-4 border-l-red-600 border-y border-r border-slate-200 p-6 flex items-center justify-between transition-transform hover:-translate-y-1">
+        <div className="bg-white rounded-xl shadow-md border-l-4 border-l-red-600 border-y border-r border-slate-200 p-4 md:p-6 flex items-center justify-between transition-transform hover:-translate-y-1">
             <div>
-              <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1">AMT Terblokir (Blocked)</p>
-              <h3 className="text-4xl font-extrabold text-slate-800">{blockedCount}</h3>
-              <p className="text-xs text-red-600 font-semibold mt-2 flex items-center gap-1">
+              <p className="text-slate-500 text-[10px] md:text-xs font-bold uppercase tracking-wider mb-1">AMT Terblokir (Blocked)</p>
+              <h3 className="text-3xl md:text-4xl font-extrabold text-slate-800">{blockedCount}</h3>
+              <p className="text-[10px] md:text-xs text-red-600 font-semibold mt-1 md:mt-2 flex items-center gap-1">
                  <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse"></span> Requires Attention
               </p>
             </div>
-            <div className="bg-red-50 p-3 rounded-lg text-red-600">
-              <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+            <div className="bg-red-50 p-2 md:p-3 rounded-lg text-red-600">
+              <svg className="w-6 h-6 md:w-8 md:h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
             </div>
         </div>
 
         {/* Unblocked Card */}
-        <div className="bg-white rounded-xl shadow-md border-l-4 border-l-emerald-500 border-y border-r border-slate-200 p-6 flex items-center justify-between transition-transform hover:-translate-y-1">
+        <div className="bg-white rounded-xl shadow-md border-l-4 border-l-emerald-500 border-y border-r border-slate-200 p-4 md:p-6 flex items-center justify-between transition-transform hover:-translate-y-1">
             <div>
-              <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1">Aktif / Unblocked</p>
-              <h3 className="text-4xl font-extrabold text-slate-800">{unblockedCount}</h3>
-              <p className="text-xs text-emerald-600 font-semibold mt-2 flex items-center gap-1">
+              <p className="text-slate-500 text-[10px] md:text-xs font-bold uppercase tracking-wider mb-1">Aktif / Unblocked</p>
+              <h3 className="text-3xl md:text-4xl font-extrabold text-slate-800">{unblockedCount}</h3>
+              <p className="text-[10px] md:text-xs text-emerald-600 font-semibold mt-1 md:mt-2 flex items-center gap-1">
                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span> Operational
               </p>
             </div>
-            <div className="bg-emerald-50 p-3 rounded-lg text-emerald-600">
-              <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <div className="bg-emerald-50 p-2 md:p-3 rounded-lg text-emerald-600">
+              <svg className="w-6 h-6 md:w-8 md:h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             </div>
         </div>
 
         {/* PHK Card */}
-        <div className="bg-white rounded-xl shadow-md border-l-4 border-l-slate-800 border-y border-r border-slate-200 p-6 flex items-center justify-between transition-transform hover:-translate-y-1">
+        <div className="bg-white rounded-xl shadow-md border-l-4 border-l-slate-800 border-y border-r border-slate-200 p-4 md:p-6 flex items-center justify-between transition-transform hover:-translate-y-1">
             <div>
-              <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1">Total PHK</p>
-              <h3 className="text-4xl font-extrabold text-slate-800">{phkCount}</h3>
-              <p className="text-xs text-slate-500 font-semibold mt-2">Terminated</p>
+              <p className="text-slate-500 text-[10px] md:text-xs font-bold uppercase tracking-wider mb-1">Total PHK</p>
+              <h3 className="text-3xl md:text-4xl font-extrabold text-slate-800">{phkCount}</h3>
+              <p className="text-[10px] md:text-xs text-slate-500 font-semibold mt-1 md:mt-2">Terminated</p>
             </div>
-            <div className="bg-slate-100 p-3 rounded-lg text-slate-700">
-               <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
+            <div className="bg-slate-100 p-2 md:p-3 rounded-lg text-slate-700">
+               <svg className="w-6 h-6 md:w-8 md:h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
             </div>
         </div>
       </div>
@@ -175,15 +186,15 @@ export const ViewMode: React.FC = () => {
       <div className="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
         
         {/* FILTER BAR */}
-        <div className="p-5 border-b border-slate-200 bg-slate-50">
-           <div className="flex flex-col sm:flex-row justify-between items-center mb-4">
+        <div className="p-4 md:p-5 border-b border-slate-200 bg-slate-50">
+           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-3 md:gap-0">
               <div>
-                 <h2 className="text-lg font-bold text-slate-800">Riwayat Kasus AMT</h2>
-                 <p className="text-xs text-slate-500">Gunakan filter di bawah untuk mencari data spesifik</p>
+                 <h2 className="text-base md:text-lg font-bold text-slate-800">Riwayat Kasus AMT</h2>
+                 <p className="text-[10px] md:text-xs text-slate-500">Gunakan filter di bawah untuk mencari data spesifik</p>
               </div>
               <button 
                 onClick={handleExportCSV}
-                className="mt-2 sm:mt-0 flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-lg shadow-sm text-sm transition-colors"
+                className="w-full md:w-auto flex justify-center items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-lg shadow-sm text-xs md:text-sm transition-colors"
               >
                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                  Export Data
@@ -191,27 +202,30 @@ export const ViewMode: React.FC = () => {
            </div>
 
            {/* MULTI FILTER GRID */}
-           <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-              {/* 1. Lokasi */}
-              <div>
-                 <select 
-                    value={filterLocation} 
+           <div className="grid grid-cols-1 md:grid-cols-5 gap-2 md:gap-3">
+              {/* 1. Lokasi (FLEXIBLE SEARCH: Type OR Select via Datalist) */}
+              <div className="flex flex-col gap-1 relative">
+                 <input 
+                    list="viewLocationOptions"
+                    type="text" 
+                    placeholder="Cari Lokasi / Pilih List..." 
+                    value={filterLocation}
                     onChange={(e) => setFilterLocation(e.target.value)}
-                    className="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-800 outline-none bg-white"
-                 >
-                    <option value="">Semua Lokasi</option>
-                    {locations.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}
-                 </select>
+                    className="w-full border border-slate-300 rounded-lg p-2 md:p-2.5 text-xs md:text-sm focus:ring-2 focus:ring-blue-800 outline-none placeholder-slate-400"
+                 />
+                 <datalist id="viewLocationOptions">
+                    {locations.map(l => <option key={l.id} value={l.name} />)}
+                 </datalist>
               </div>
 
-              {/* 2. Nama */}
+              {/* 2. Nama (Standard Text) */}
               <div>
                  <input 
                     type="text" 
                     placeholder="Cari Nama..." 
                     value={filterName}
                     onChange={(e) => setFilterName(e.target.value)}
-                    className="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-800 outline-none"
+                    className="w-full border border-slate-300 rounded-lg p-2 md:p-2.5 text-xs md:text-sm focus:ring-2 focus:ring-blue-800 outline-none"
                  />
               </div>
 
@@ -220,7 +234,7 @@ export const ViewMode: React.FC = () => {
                  <select 
                     value={filterRole} 
                     onChange={(e) => setFilterRole(e.target.value)}
-                    className="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-800 outline-none bg-white"
+                    className="w-full border border-slate-300 rounded-lg p-2 md:p-2.5 text-xs md:text-sm focus:ring-2 focus:ring-blue-800 outline-none bg-white"
                  >
                     <option value="">Semua Jabatan</option>
                     <option value="AMT 1">AMT 1</option>
@@ -233,7 +247,7 @@ export const ViewMode: React.FC = () => {
                  <select 
                     value={filterStatus} 
                     onChange={(e) => setFilterStatus(e.target.value)}
-                    className="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-800 outline-none bg-white"
+                    className="w-full border border-slate-300 rounded-lg p-2 md:p-2.5 text-xs md:text-sm focus:ring-2 focus:ring-blue-800 outline-none bg-white"
                  >
                     <option value="">Semua Status</option>
                     <option value="BLOCKED">Blocked</option>
@@ -245,7 +259,7 @@ export const ViewMode: React.FC = () => {
               <div>
                  <button 
                     onClick={resetFilters}
-                    className="w-full bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2.5 rounded-lg text-sm transition-colors border border-slate-300"
+                    className="w-full bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2 md:py-2.5 rounded-lg text-xs md:text-sm transition-colors border border-slate-300"
                  >
                     Reset Filter
                  </button>
@@ -254,68 +268,76 @@ export const ViewMode: React.FC = () => {
         </div>
         
         {/* TABLE */}
-        <div className="overflow-x-auto max-h-[600px]">
-          <table className="w-full text-left text-sm text-slate-700 relative">
-            <thead className="bg-blue-900 text-white uppercase font-bold text-xs tracking-wider sticky top-0 z-10 shadow-sm">
+        <div className="overflow-x-auto max-h-[500px] md:max-h-[600px]">
+          <table className="w-full text-left text-xs md:text-sm text-slate-700 relative">
+            <thead className="bg-blue-900 text-white uppercase font-bold text-[10px] md:text-xs tracking-wider sticky top-0 z-10 shadow-sm">
               <tr>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4">Nama AMT</th>
-                <th className="px-6 py-4">Jabatan</th>
-                <th className="px-6 py-4">Lokasi</th>
-                <th className="px-6 py-4">Pelanggaran</th>
-                <th className="px-6 py-4">Tgl Blokir</th>
-                <th className="px-6 py-4">Punishment / BAP</th>
+                <th className="px-3 py-3 md:px-6 md:py-4">Status</th>
+                <th className="px-3 py-3 md:px-6 md:py-4">Nama AMT</th>
+                <th className="px-3 py-3 md:px-6 md:py-4">Jabatan</th>
+                <th className="px-3 py-3 md:px-6 md:py-4">Lokasi</th>
+                <th className="px-3 py-3 md:px-6 md:py-4">Pelanggaran</th>
+                <th className="px-3 py-3 md:px-6 md:py-4">Tgl Blokir</th>
+                <th className="px-3 py-3 md:px-6 md:py-4">Punishment</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredCases.map((c, idx) => (
+              {filteredCases.map((c, idx) => {
+                const cleared = isPemutihan(c);
+                return (
                 <tr key={c.id} className={`hover:bg-blue-50/30 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}`}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold inline-flex items-center gap-1.5 shadow-sm ${c.status === 'BLOCKED' ? 'bg-red-100 text-red-700 border border-red-200' : 'bg-emerald-100 text-emerald-700 border border-emerald-200'}`}>
-                      <span className={`w-2 h-2 rounded-full ${c.status === 'BLOCKED' ? 'bg-red-600' : 'bg-emerald-600'}`}></span>
+                  <td className="px-3 py-3 md:px-6 md:py-4 whitespace-nowrap">
+                    <span className={`px-2 py-0.5 md:px-3 md:py-1 rounded-full text-[10px] md:text-xs font-bold inline-flex items-center gap-1 shadow-sm ${c.status === 'BLOCKED' ? 'bg-red-100 text-red-700 border border-red-200' : 'bg-emerald-100 text-emerald-700 border border-emerald-200'}`}>
+                      <span className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full ${c.status === 'BLOCKED' ? 'bg-red-600' : 'bg-emerald-600'}`}></span>
                       {c.status}
                     </span>
                   </td>
-                  <td className="px-6 py-4 font-bold text-slate-800">{c.amtName}</td>
-                  <td className="px-6 py-4">
+                  <td className="px-3 py-3 md:px-6 md:py-4 font-bold text-slate-800 whitespace-nowrap">{c.amtName}</td>
+                  <td className="px-3 py-3 md:px-6 md:py-4">
                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border ${c.amtRole === 'AMT 1' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-indigo-50 text-indigo-700 border-indigo-200'}`}>
                         {c.amtRole}
                      </span>
                   </td>
-                  <td className="px-6 py-4 text-slate-600 font-medium">{c.amtLocation}</td>
-                  <td className="px-6 py-4">
-                      <span className="text-xs font-medium bg-slate-100 text-slate-700 px-2 py-1 rounded border border-slate-200">
+                  <td className="px-3 py-3 md:px-6 md:py-4 text-slate-600 font-medium whitespace-nowrap">{c.amtLocation}</td>
+                  <td className="px-3 py-3 md:px-6 md:py-4">
+                      <span className="text-[10px] md:text-xs font-medium bg-slate-100 text-slate-700 px-2 py-1 rounded border border-slate-200 whitespace-nowrap">
                         {c.violationName}
                       </span>
                   </td>
-                  <td className="px-6 py-4 font-mono text-xs">{c.blockDate}</td>
-                  <td className="px-6 py-4">
+                  <td className="px-3 py-3 md:px-6 md:py-4 font-mono text-[10px] md:text-xs whitespace-nowrap">{c.blockDate}</td>
+                  <td className="px-3 py-3 md:px-6 md:py-4 whitespace-nowrap">
                     {c.status === 'UNBLOCKED' ? (
                       <div className="flex flex-col">
-                        <span className="font-bold text-blue-800 text-sm">{c.punishmentLevel}</span>
+                        <span className="font-bold text-blue-800 text-[10px] md:text-sm">{c.punishmentLevel}</span>
                         {c.punishmentLevel !== 'PHK' && (
-                           <span className="text-[10px] text-slate-500 font-medium mt-0.5 bg-slate-100 inline-block px-1 rounded w-fit">
-                             Berakhir: {c.punishmentEndDate}
-                           </span>
+                           cleared ? (
+                             <span className="text-[9px] md:text-[10px] text-emerald-700 font-bold mt-0.5 bg-emerald-100 inline-block px-1 rounded w-fit border border-emerald-200">
+                               PEMUTIHAN (SELESAI)
+                             </span>
+                           ) : (
+                             <span className="text-[9px] md:text-[10px] text-slate-500 font-medium mt-0.5 bg-slate-100 inline-block px-1 rounded w-fit">
+                               Selesai: {c.punishmentEndDate}
+                             </span>
+                           )
                         )}
                       </div>
                     ) : (
-                      <span className="text-slate-400 italic text-xs flex items-center gap-1">
-                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                      <span className="text-slate-400 italic text-[10px] md:text-xs flex items-center gap-1">
+                        <svg className="w-3 h-3 hidden md:block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                         Menunggu BAP
                       </span>
                     )}
                   </td>
                 </tr>
-              ))}
+              )})}
               {filteredCases.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-6 py-16 text-center text-slate-400">
+                  <td colSpan={7} className="px-6 py-12 text-center text-slate-400">
                     <div className="flex flex-col items-center justify-center">
                         <div className="bg-slate-50 p-4 rounded-full mb-3">
                            <svg className="w-10 h-10 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                         </div>
-                        <p className="font-medium">Tidak ada data ditemukan.</p>
+                        <p className="font-medium text-sm">Tidak ada data ditemukan.</p>
                         <p className="text-xs mt-1">Sesuaikan filter pencarian Anda.</p>
                     </div>
                   </td>

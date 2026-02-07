@@ -22,6 +22,9 @@
     <!-- 5. Babel (Compiler) -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
+    <!-- 6. SweetAlert2 (New) -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
     <style>
       body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
       
@@ -40,6 +43,9 @@
       .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
       .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 10px; }
       .custom-scrollbar::-webkit-scrollbar-thumb:hover { background-color: #94a3b8; }
+      
+      /* SweetAlert Custom Font */
+      .swal2-popup { font-family: 'Inter', sans-serif !important; }
     </style>
 <script type="importmap">
 {
@@ -433,7 +439,7 @@
             );
         };
 
-        // Component: ViewMode (UPDATED WITH FILTERS & EXPORT)
+        // Component: ViewMode
         const ViewMode = () => {
             const [cases, setCases] = useState([]);
             const [locations, setLocations] = useState([]);
@@ -466,8 +472,12 @@
 
             // --- FILTER LOGIC ---
             const filteredCases = cases.filter(c => {
-                const matchLoc = filterLocation === '' || c.amtLocation === filterLocation;
+                // Flexible Location Search (Type or List)
+                const matchLoc = filterLocation === '' || c.amtLocation.toLowerCase().includes(filterLocation.toLowerCase());
+                
+                // Name Filter (Standard Text Input)
                 const matchName = filterName === '' || c.amtName.toLowerCase().includes(filterName.toLowerCase());
+                
                 const matchRole = filterRole === '' || c.amtRole === filterRole;
                 const matchStatus = filterStatus === '' || c.status === filterStatus;
                 return matchLoc && matchName && matchRole && matchStatus;
@@ -480,9 +490,11 @@
                 setFilterStatus('');
             };
 
-            // --- EXPORT LOGIC ---
             const handleExportCSV = () => {
-                if (filteredCases.length === 0) { alert("Tidak ada data untuk diekspor sesuai filter saat ini."); return; }
+                if (filteredCases.length === 0) { 
+                    Swal.fire({ icon: 'warning', title: 'Perhatian', text: "Tidak ada data untuk diekspor sesuai filter saat ini." }); 
+                    return; 
+                }
                 const headers = ["No", "Nama AMT", "Jabatan", "Lokasi", "Jenis Pelanggaran", "Status", "Tanggal Blokir", "Tanggal Unblock", "Level Punishment", "Tanggal Berakhir Sanksi"];
                 const csvRows = [
                     headers.join(","),
@@ -506,6 +518,7 @@
 
             return (
                 <div className="p-6 max-w-[1600px] mx-auto space-y-8 animate-fade-in">
+                    {/* Header... (Same as before) */}
                     <div className="flex flex-col md:flex-row justify-between items-end md:items-center pb-6 border-b border-slate-200">
                         <div>
                             <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">Dashboard Monitoring</h1>
@@ -542,11 +555,30 @@
                                 </button>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-                                <select value={filterLocation} onChange={(e) => setFilterLocation(e.target.value)} className="w-full border p-2.5 rounded-lg text-sm">
-                                    <option value="">Semua Lokasi</option>
-                                    {locations.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}
-                                </select>
-                                <input type="text" placeholder="Cari Nama..." value={filterName} onChange={(e) => setFilterName(e.target.value)} className="w-full border p-2.5 rounded-lg text-sm" />
+                                {/* FLEXIBLE LOCATION SEARCH (Input + Datalist) */}
+                                <div className="flex flex-col gap-1.5 relative">
+                                    <input 
+                                        list="viewLocationOptions" 
+                                        type="text" 
+                                        placeholder="Cari Lokasi / Pilih List..." 
+                                        value={filterLocation} 
+                                        onChange={(e) => setFilterLocation(e.target.value)} 
+                                        className="w-full border p-2.5 rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-400" 
+                                    />
+                                    <datalist id="viewLocationOptions">
+                                        {locations.map(l => <option key={l.id} value={l.name} />)}
+                                    </datalist>
+                                </div>
+                                
+                                {/* NAME FILTER */}
+                                <input 
+                                    type="text" 
+                                    placeholder="Cari Nama..." 
+                                    value={filterName} 
+                                    onChange={(e) => setFilterName(e.target.value)} 
+                                    className="w-full border p-2.5 rounded-lg text-sm" 
+                                />
+
                                 <select value={filterRole} onChange={(e) => setFilterRole(e.target.value)} className="w-full border p-2.5 rounded-lg text-sm">
                                     <option value="">Semua Jabatan</option>
                                     <option value="AMT 1">AMT 1</option>
@@ -560,6 +592,7 @@
                                 <button onClick={resetFilters} className="w-full bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2.5 rounded-lg text-sm">Reset</button>
                             </div>
                         </div>
+                        {/* Table... (Same as before) */}
                         <div className="overflow-x-auto max-h-[600px]">
                             <table className="w-full text-left text-sm text-slate-600">
                                 <thead className="bg-blue-900 text-white uppercase text-xs sticky top-0">
@@ -599,7 +632,7 @@
             );
         };
 
-        // Component: AdminPanel (UPDATED WITH FILTERS & EXPORT IN UNBLOCK & DATA VIEW)
+        // Component: AdminPanel
         const AdminPanel = () => {
             const [tab, setTab] = useState('DASHBOARD');
             const [locations, setLocations] = useState([]);
@@ -643,14 +676,38 @@
             useEffect(() => { refreshData(); }, []);
             useEffect(() => { resetFilters(); }, [tab]);
 
+            // Helper for Unique Names in Admin Filter
+            const uniqueAmtNames = useMemo(() => {
+                const names = cases.map(c => c.amtName);
+                return [...new Set(names)].sort();
+            }, [cases]);
+
+            // Format Name Helper
+            const formatAmtName = (name) => {
+                return name.replace(/\s+/g, ' ').trim().toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+            };
+
             const handleBlockSubmit = (e) => {
                 e.preventDefault();
-                if (!newAmtName || !newAmtRole || !selectedLoc || !selectedVio) { alert("Please fill all fields"); return; }
-                let amt = amts.find(a => a.name === newAmtName && a.role === newAmtRole);
-                if (!amt) { amt = db.addAMT(newAmtName, newAmtRole, selectedLoc); } 
+                if (!newAmtName || !newAmtRole || !selectedLoc || !selectedVio) { 
+                    Swal.fire({ icon: 'error', title: 'Data Tidak Lengkap', text: 'Mohon isi semua field yang tersedia.' });
+                    return; 
+                }
+                
+                const fixedName = formatAmtName(newAmtName);
+                let amt = amts.find(a => a.name === fixedName && a.role === newAmtRole);
+                if (!amt) { amt = db.addAMT(fixedName, newAmtRole, selectedLoc); } 
                 db.createBlockCase(amt.id, selectedVio, blockDate);
                 setNewAmtName(''); setSelectedVio('');
-                alert("AMT Blocked Successfully");
+                
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Berhasil',
+                    text: `AMT ${fixedName} telah diblokir.`,
+                    timer: 1500,
+                    showConfirmButton: false
+                });
+
                 refreshData(); setTab('DASHBOARD');
             };
 
@@ -666,7 +723,15 @@
             const handleUnblockSubmit = () => {
                 if (!selectedCase) return;
                 db.processUnblock(selectedCase.id, unblockDate, finalLevel, bapNotes);
-                alert("Unblock Processed & BAP Recorded");
+                
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Unblock Sukses',
+                    text: 'Data BAP telah tersimpan.',
+                    timer: 1500,
+                    showConfirmButton: false
+                });
+
                 setSelectedCase(null); refreshData();
             };
 
@@ -682,19 +747,49 @@
                 let finalEndDate = editEndDate;
                 if(editPunishmentLevel === PunishmentLevel.PHK) { finalEndDate = 'Permanent'; }
                 db.updateCase(editingCase.id, { punishmentLevel: editPunishmentLevel, punishmentEndDate: finalEndDate, notes: editNotes });
-                alert("Data Updated Successfully");
+                
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Update Berhasil',
+                    text: 'Data sanksi telah diperbarui.',
+                    timer: 1500,
+                    showConfirmButton: false
+                });
+
                 setEditingCase(null); refreshData();
             };
 
             const handleAddViolation = () => { if(newViolation) { db.addViolationType(newViolation); setNewViolation(''); refreshData(); } };
-            const handleDeleteViolation = (id) => { if(confirm("Are you sure?")) { db.deleteViolationType(id); refreshData(); } };
+            
+            const handleDeleteViolation = (id) => { 
+                Swal.fire({
+                    title: 'Apakah anda yakin?',
+                    text: "Data akan dihapus permanen!",
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#3085d6',
+                    cancelButtonColor: '#d33',
+                    confirmButtonText: 'Ya, Hapus!',
+                    cancelButtonText: 'Batal'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        db.deleteViolationType(id);
+                        refreshData();
+                        Swal.fire('Terhapus!', 'Data telah dihapus.', 'success');
+                    }
+                })
+            };
 
             const resetFilters = () => { setFilterLocation(''); setFilterName(''); setFilterRole(''); setFilterStatus(''); };
 
             // Helper Filters
             const getFilteredCases = () => cases.filter(c => {
-                const matchLoc = filterLocation === '' || c.amtLocation === filterLocation;
+                // Flexible Location Search (Type or List)
+                const matchLoc = filterLocation === '' || c.amtLocation.toLowerCase().includes(filterLocation.toLowerCase());
+                
+                // Name Filter (Standard Text Input)
                 const matchName = filterName === '' || c.amtName.toLowerCase().includes(filterName.toLowerCase());
+
                 const matchRole = filterRole === '' || c.amtRole === filterRole;
                 const matchStatus = filterStatus === '' || c.status === filterStatus;
                 return matchLoc && matchName && matchRole && matchStatus;
@@ -702,7 +797,10 @@
 
             const getFilteredBlockedCases = () => cases.filter(c => {
                 const isBlocked = c.status === 'BLOCKED';
-                const matchLoc = filterLocation === '' || c.amtLocation === filterLocation;
+                
+                // Flexible Location Search
+                const matchLoc = filterLocation === '' || c.amtLocation.toLowerCase().includes(filterLocation.toLowerCase());
+                
                 const matchName = filterName === '' || c.amtName.toLowerCase().includes(filterName.toLowerCase());
                 const matchRole = filterRole === '' || c.amtRole === filterRole;
                 return isBlocked && matchLoc && matchName && matchRole;
@@ -711,7 +809,10 @@
             // Export Helpers
             const handleExportCSV = () => {
                 const data = getFilteredCases();
-                if (data.length === 0) { alert("Tidak ada data."); return; }
+                if (data.length === 0) { 
+                    Swal.fire({icon: 'info', title: 'Data Kosong', text: 'Tidak ada data untuk diekspor.'}); 
+                    return; 
+                }
                 const headers = ["No", "Nama AMT", "Jabatan", "Lokasi", "Jenis Pelanggaran", "Status", "Tanggal Blokir", "Tanggal Unblock", "Level Punishment", "Tanggal Berakhir Sanksi"];
                 const csvRows = [headers.join(","), ...data.map((c, i) => [i+1, `"${c.amtName}"`, `"${c.amtRole}"`, `"${c.amtLocation}"`, `"${c.violationName}"`, c.status, c.blockDate, c.unblockDate||"-", c.punishmentLevel||"-", c.punishmentEndDate||"-"].join(","))];
                 const blob = new Blob([csvRows.join("\n")], { type: 'text/csv;charset=utf-8;' });
@@ -720,7 +821,10 @@
 
             const handleExportBlockedCSV = () => {
                 const data = getFilteredBlockedCases();
-                if (data.length === 0) { alert("Tidak ada data blocked."); return; }
+                if (data.length === 0) { 
+                    Swal.fire({icon: 'info', title: 'Data Kosong', text: 'Tidak ada data blocked.'});
+                    return; 
+                }
                 const headers = ["No", "Nama AMT", "Jabatan", "Lokasi", "Jenis Pelanggaran", "Tanggal Blokir", "Status"];
                 const csvRows = [headers.join(","), ...data.map((c, i) => [i+1, `"${c.amtName}"`, `"${c.amtRole}"`, `"${c.amtLocation}"`, `"${c.violationName}"`, c.blockDate, "BLOCKED"].join(","))];
                 const blob = new Blob([csvRows.join("\n")], { type: 'text/csv;charset=utf-8;' });
@@ -731,6 +835,60 @@
                 <button onClick={() => setTab(id)} className={`w-full text-left px-4 py-3 rounded-lg mb-2 transition-all ${tab === id ? 'bg-blue-600 text-white font-bold shadow-md transform scale-105' : 'text-slate-300 hover:bg-slate-800'}`}>
                     {label}
                 </button>
+            );
+
+            // Reusable Filter Bar Component for consistency
+            const renderFilterBar = () => (
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-3 bg-white p-4 rounded-xl shadow-sm">
+                    {/* 1. Filter Lokasi (Flexible Input + Datalist) */}
+                    <div className="flex flex-col gap-1.5 relative">
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">1. Lokasi</label>
+                        <input 
+                            list="adminLocationOptions" 
+                            type="text" 
+                            placeholder="Cari Lokasi / Pilih List..." 
+                            value={filterLocation} 
+                            onChange={(e) => setFilterLocation(e.target.value)} 
+                            className="w-full border p-2.5 rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-400" 
+                        />
+                        <datalist id="adminLocationOptions">
+                            {locations.map(l => <option key={l.id} value={l.name} />)}
+                        </datalist>
+                    </div>
+
+                    {/* 2. Filter Nama (STANDARD TEXT) */}
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">2. Nama AMT</label>
+                        <input type="text" placeholder="Cari Nama..." value={filterName} onChange={(e) => setFilterName(e.target.value)} className="w-full border p-2.5 rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500" />
+                    </div>
+
+                    {/* 3. Filter Jabatan */}
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">3. Jabatan</label>
+                        <select value={filterRole} onChange={(e) => setFilterRole(e.target.value)} className="w-full border p-2.5 rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">Semua Jabatan</option>
+                            <option value="AMT 1">AMT 1</option>
+                            <option value="AMT 2">AMT 2</option>
+                        </select>
+                    </div>
+
+                    {/* 4. Filter Status */}
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">4. Status</label>
+                        <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="w-full border p-2.5 rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">Semua Status</option>
+                            <option value="BLOCKED">Blocked</option>
+                            <option value="UNBLOCKED">Unblocked</option>
+                        </select>
+                    </div>
+
+                    {/* Reset */}
+                    <div>
+                        <button onClick={resetFilters} className="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-2.5 px-4 rounded-lg transition-colors text-sm flex items-center justify-center gap-2 border border-slate-300 h-[42px]">
+                            Reset
+                        </button>
+                    </div>
+                </div>
             );
 
             return (
@@ -757,13 +915,7 @@
                                     <h2 className="text-2xl font-bold">Data AMT</h2>
                                     <button onClick={handleExportCSV} className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow hover:bg-emerald-700">Export CSV</button>
                                 </div>
-                                <div className="grid grid-cols-1 md:grid-cols-5 gap-3 bg-white p-4 rounded-xl shadow-sm">
-                                    <select value={filterLocation} onChange={(e) => setFilterLocation(e.target.value)} className="w-full border p-2 rounded text-sm"><option value="">Semua Lokasi</option>{locations.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}</select>
-                                    <input type="text" placeholder="Cari Nama..." value={filterName} onChange={(e) => setFilterName(e.target.value)} className="w-full border p-2 rounded text-sm" />
-                                    <select value={filterRole} onChange={(e) => setFilterRole(e.target.value)} className="w-full border p-2 rounded text-sm"><option value="">Semua Jabatan</option><option value="AMT 1">AMT 1</option><option value="AMT 2">AMT 2</option></select>
-                                    <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="w-full border p-2 rounded text-sm"><option value="">Semua Status</option><option value="BLOCKED">Blocked</option><option value="UNBLOCKED">Unblocked</option></select>
-                                    <button onClick={resetFilters} className="w-full bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2 rounded text-sm">Reset</button>
-                                </div>
+                                {renderFilterBar()}
 
                                 <div className="bg-white rounded-xl shadow overflow-hidden">
                                     <div className="overflow-x-auto max-h-[600px]">
@@ -856,12 +1008,7 @@
                                     <h2 className="text-2xl font-bold">Pending Unblocks</h2>
                                     <button onClick={handleExportBlockedCSV} className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow hover:bg-emerald-700">Export CSV</button>
                                 </div>
-                                <div className="grid grid-cols-1 md:grid-cols-4 gap-3 bg-white p-4 rounded-xl shadow-sm">
-                                    <select value={filterLocation} onChange={(e) => setFilterLocation(e.target.value)} className="w-full border p-2 rounded text-sm"><option value="">Semua Lokasi</option>{locations.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}</select>
-                                    <input type="text" placeholder="Cari Nama..." value={filterName} onChange={(e) => setFilterName(e.target.value)} className="w-full border p-2 rounded text-sm" />
-                                    <select value={filterRole} onChange={(e) => setFilterRole(e.target.value)} className="w-full border p-2 rounded text-sm"><option value="">Semua Jabatan</option><option value="AMT 1">AMT 1</option><option value="AMT 2">AMT 2</option></select>
-                                    <button onClick={resetFilters} className="w-full bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2 rounded text-sm">Reset</button>
-                                </div>
+                                {renderFilterBar()}
                                 
                                 {getFilteredBlockedCases().length === 0 && <div className="text-slate-400 italic text-center py-10">No blocked AMTs pending.</div>}
                                 {getFilteredBlockedCases().map(c => (

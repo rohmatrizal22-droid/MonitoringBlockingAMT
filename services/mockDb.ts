@@ -59,7 +59,7 @@ class MockDatabase {
     // 2. Create Dummy Cases (History & Active)
     const cases: Case[] = [];
 
-    // Case A: Active Blocks (Red)
+    // Case A: Active Blocks (Red) - Indices 0-4
     for(let i=0; i<5; i++) {
         const amt = generatedAMTs[i];
         const vio = rnd(vios);
@@ -77,22 +77,22 @@ class MockDatabase {
         });
     }
 
-    // Case B: Unblocked with Punishment (Green)
+    // Case B: Unblocked with Active Punishment (Green/Running) - Indices 5-14
     for(let i=5; i<15; i++) {
         const amt = generatedAMTs[i];
         const vio = rnd(vios);
         const loc = locs.find(l => l.id === amt.locationId);
         
-        // Random Punishment (Updated to include BAP_COACHING)
+        // Random Punishment (Active)
         const levels = [PunishmentLevel.BAP_COACHING, PunishmentLevel.SURAT_TEGURAN, PunishmentLevel.SP1, PunishmentLevel.SP2, PunishmentLevel.SP3];
         const level = rnd(levels);
-        const blockDaysAgo = Math.floor(Math.random() * 30) + 10;
-        const unblockDaysAgo = blockDaysAgo - 2;
+        const blockDaysAgo = Math.floor(Math.random() * 10) + 1; // Baru saja terjadi
+        const unblockDaysAgo = 0; // Hari ini unblock
         
         const blockDate = new Date(Date.now() - blockDaysAgo * 86400000);
         const unblockDate = new Date(Date.now() - unblockDaysAgo * 86400000);
         
-        // Calc end date
+        // Calc end date (Future)
         const endDate = new Date(unblockDate);
         endDate.setDate(endDate.getDate() + PUNISHMENT_DURATION_DAYS[level]);
 
@@ -110,11 +110,45 @@ class MockDatabase {
             bapDate: unblockDate.toISOString().split('T')[0],
             punishmentLevel: level,
             punishmentEndDate: endDate.toISOString().split('T')[0],
-            notes: "BAP Processed via System."
+            notes: "BAP Processed via System (Active Punishment)."
         });
     }
 
-    // Case C: PHK (Termination)
+    // Case C: PEMUTIHAN (Expired Punishment) - Indices 15-18
+    // Kita buat sanksinya Surat Teguran (30 hari) tapi kejadiannya 2 bulan lalu.
+    for(let i=15; i<18; i++) {
+        const amt = generatedAMTs[i];
+        const vio = rnd(vios);
+        const loc = locs.find(l => l.id === amt.locationId);
+        
+        const duration = 30; // Surat Teguran
+        const daysAgo = 60; // Kejadian 60 hari lalu
+        
+        const blockDate = new Date(Date.now() - daysAgo * 86400000);
+        const unblockDate = new Date(Date.now() - (daysAgo - 2) * 86400000);
+        
+        const endDate = new Date(unblockDate);
+        endDate.setDate(endDate.getDate() + duration); // Expired sekitar 30 hari lalu
+
+        cases.push({
+            id: `case_pemutihan_${i}`,
+            amtId: amt.id,
+            amtName: amt.name + " (Contoh Pemutihan)", // Penanda visual
+            amtRole: amt.role,
+            amtLocation: loc?.name || 'Unknown',
+            violationTypeId: vio.id,
+            violationName: vio.name,
+            status: 'UNBLOCKED',
+            blockDate: blockDate.toISOString().split('T')[0],
+            unblockDate: unblockDate.toISOString().split('T')[0],
+            bapDate: unblockDate.toISOString().split('T')[0],
+            punishmentLevel: PunishmentLevel.SURAT_TEGURAN,
+            punishmentEndDate: endDate.toISOString().split('T')[0],
+            notes: "Sanksi telah berakhir. Masuk masa pemutihan."
+        });
+    }
+
+    // Case D: PHK (Termination) - Index 19
     const phkAmt = generatedAMTs[19];
     const phkLoc = locs.find(l => l.id === phkAmt.locationId);
     cases.push({
@@ -263,6 +297,8 @@ class MockDatabase {
 
     const endDate = lastCase.punishmentEndDate ? new Date(lastCase.punishmentEndDate) : new Date(0);
 
+    // FIX LOGIC: Return active only if EndDate >= Today.
+    // If EndDate < Today, it means it's expired (Pemutihan), so return null (clean slate).
     if (endDate >= today) {
         return { level: lastCase.punishmentLevel!, endDate: lastCase.punishmentEndDate! };
     }
@@ -272,8 +308,10 @@ class MockDatabase {
 
   suggestPunishment(amtId: string): PunishmentLevel {
     const active = this.getActivePunishment(amtId);
-    if (!active) return PunishmentLevel.BAP_COACHING; // Start level (Revised)
+    // If no active punishment (either never punished or expired/pemutihan), suggest lowest level
+    if (!active) return PunishmentLevel.BAP_COACHING; 
 
+    // Escalation logic
     switch(active.level) {
       case PunishmentLevel.BAP_COACHING: return PunishmentLevel.SURAT_TEGURAN;
       case PunishmentLevel.SURAT_TEGURAN: return PunishmentLevel.SP1;
